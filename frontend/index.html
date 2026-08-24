@@ -968,9 +968,8 @@ function togglePanel(){
       }
     }
   }catch(e){ /* ignore snapshot load errors */ }
-  connectWS();
-  // RefreshMap will try live API and update the view if backend responds
-  refreshMap();
+  // Do not auto-connect to backend or refresh from live API on page load.
+  // Users can click the Refresh button to attempt a live update when ready.
   logMsg('SensRo ready','ok');
 })();
 </script>
