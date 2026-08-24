@@ -1,0 +1,35 @@
+name: Deploy to Fly
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install flyctl
+        run: curl -L https://fly.io/install.sh | sh
+
+      - name: Add flyctl to PATH
+        run: echo "$HOME/.fly/bin" >> $GITHUB_PATH
+
+      - name: Deploy to Fly
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ secrets.FLY_APP }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "FLY_API_TOKEN secret is not set in this repository. Set it and re-run the workflow."; exit 1
+          fi
+          # If FLY_APP is not provided, create or use default name
+          if [ -z "$FLY_APP" ]; then
+            FLY_APP="sensro-backend"
+            echo "Using default Fly app name: $FLY_APP"
+          fi
+          # Create app if it doesn't exist (ignore errors)
+          flyctl apps create "$FLY_APP" || true
+          flyctl deploy --app "$FLY_APP" --config fly.toml
