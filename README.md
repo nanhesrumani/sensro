@@ -105,19 +105,6 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 
 - If you deploy, update the frontend to point to the deployed backend URL (or keep using relative `/api` if you proxy or host backend under the same domain). You can also keep the snapshot workflow running for Pages.
 
-### Quick deploy to Fly (recommended alternative)
-
-This repository includes a `Dockerfile` and a GitHub Actions workflow to deploy the backend to Fly.io.
-
-Steps:
-
-1. Create a Fly account and generate an API token.
-2. In your GitHub repo settings > Secrets, add `FLY_API_TOKEN` with the token value. Optionally add `FLY_APP` to choose the Fly app name (defaults to `sensro-backend`).
-3. Trigger the GitHub Action `Deploy to Fly` from the Actions tab, or push to `main`.
-
-The workflow will build the Docker image and deploy it to Fly. After deployment note the public URL and update the frontend API base (if needed).
-
-
 ## Tools
 
 - `tools/export_segments.py` — fetches `/api/segments` from a running backend and writes `frontend/segments.json`.

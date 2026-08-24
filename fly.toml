@@ -1,4 +1,0 @@
-app = "sensro-backend"
-
-[env]
-PORT = "8080"
