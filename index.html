@@ -841,7 +841,8 @@ async function loadTripsDropdown(){
   // Try live API first; if it fails, build trips dropdown from the snapshot
   try{
     const res = await fetch('/api/trips');
-    if(res.ok){
+    const ctype = res.headers.get('content-type') || '';
+    if(res.ok && ctype.includes('application/json')){
       const trips = await res.json();
       while(sel.options.length>1) sel.remove(1);
       trips.forEach(t=>{const o=document.createElement('option');o.value=t.id;
@@ -891,7 +892,8 @@ function renderHistoricalPoints(points){
 async function loadTripStats(tid){
   try{
     const res=await fetch(`/api/trips/${tid}/stats`);
-    if(!res.ok) { document.getElementById('tripStatsBox').innerHTML = ''; return; }
+    const ctype = res.headers.get('content-type') || '';
+    if(!res.ok || !ctype.includes('application/json')) { document.getElementById('tripStatsBox').innerHTML = ''; return; }
     const stats=await res.json();
     document.getElementById('tripStatsBox').innerHTML=stats.map(s=>`
     <div class="stat-card" style="border-left: 3px solid ${COLORS[s.condition]}">
