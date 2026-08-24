@@ -837,11 +837,33 @@ async function refreshMap(){
 }
 async function switchViewTrip(){await refreshMap();}
 async function loadTripsDropdown(){
-  const res=await fetch('/api/trips'); const trips=await res.json();
   const sel=document.getElementById('tripSelect');
-  while(sel.options.length>1) sel.remove(1);
-  trips.forEach(t=>{const o=document.createElement('option');o.value=t.id;
-    o.textContent=`#${t.id} ${t.name} (${t.point_count})`;sel.appendChild(o);});
+  // Try live API first; if it fails, build trips dropdown from the snapshot
+  try{
+    const res = await fetch('/api/trips');
+    if(res.ok){
+      const trips = await res.json();
+      while(sel.options.length>1) sel.remove(1);
+      trips.forEach(t=>{const o=document.createElement('option');o.value=t.id;
+        o.textContent=`#${t.id} ${t.name} (${t.point_count})`;sel.appendChild(o);});
+      return;
+    }
+  }catch(e){ logMsg('Trips API unavailable, falling back to snapshot','warn'); }
+
+  // Fallback: derive trips from frontend/segments.json
+  try{
+    const sres = await fetch('segments.json');
+    if(!sres.ok) return;
+    const points = await sres.json();
+    const counts = {};
+    points.forEach(p=>{ counts[p.trip_id] = (counts[p.trip_id]||0) + 1; });
+    while(sel.options.length>1) sel.remove(1);
+    Object.keys(counts).sort((a,b)=>b-a).forEach(id=>{
+      const o=document.createElement('option'); o.value=id;
+      o.textContent = `#${id} Trip (${counts[id]})`;
+      sel.appendChild(o);
+    });
+  }catch(err){ logMsg('Failed to load snapshot trips: '+err.message,'error'); }
 }
 function renderHistoricalPoints(points){
   polylines.forEach(p=>map.removeLayer(p)); markers.forEach(m=>map.removeLayer(m));
@@ -867,14 +889,18 @@ function renderHistoricalPoints(points){
   updateSummary(points);renderPointList(points);
 }
 async function loadTripStats(tid){
-  const res=await fetch(`/api/trips/${tid}/stats`);const stats=await res.json();
-  document.getElementById('tripStatsBox').innerHTML=stats.map(s=>`
+  try{
+    const res=await fetch(`/api/trips/${tid}/stats`);
+    if(!res.ok) { document.getElementById('tripStatsBox').innerHTML = ''; return; }
+    const stats=await res.json();
+    document.getElementById('tripStatsBox').innerHTML=stats.map(s=>`
     <div class="stat-card" style="border-left: 3px solid ${COLORS[s.condition]}">
       <div class="stat-card-label" style="color:${COLORS[s.condition]}">${s.condition.charAt(0).toUpperCase()+s.condition.slice(1)} (${s.count})</div>
       <div class="stat-row"><span>Avg Speed</span><span>${s.avg_speed!=null?(s.avg_speed*3.6).toFixed(1)+' km/h':'—'}</span></div>
       <div class="stat-row"><span>Avg Accel</span><span>${s.avg_accel!=null?parseFloat(s.avg_accel).toFixed(3):'—'}</span></div>
       <div class="stat-row"><span>Avg Gyro</span><span>${s.avg_gyro!=null?parseFloat(s.avg_gyro).toFixed(3):'—'}</span></div>
     </div>`).join('');
+  }catch(e){ document.getElementById('tripStatsBox').innerHTML = ''; }
 }
 function updateSummary(points){
   const c={good:0,avg:0,bad:0,obstruction:0};points.forEach(p=>c[p.condition]++);
