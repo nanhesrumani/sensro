@@ -31,15 +31,17 @@ Thumbs.db
 # Python package metadata
 *.egg-info/
 
-# SQLite local database files if you do not want to track them
-# road_data.sqbpro
-# *.db
-# *.sqlite3
+# Project data files
+road_data.db
+road_data.sqbpro
 
-# ML outputs you may want to ignore locally
-ml/models/
+# Local generated documents
+*.pdf
+
+# Jupyter outputs
 ml/*.csv
 ml/*.json
+ml/models/
 
 # Build artifacts
 build/

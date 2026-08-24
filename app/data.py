@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import aiosqlite
-from database import get_db
-from ws_manager import manager
+from app.database import get_db
+from app.ws_manager import manager
 
 router = APIRouter()
 

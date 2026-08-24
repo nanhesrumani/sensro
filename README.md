@@ -13,14 +13,19 @@ Sensro is a route prediction and data collection project for analyzing road cond
 ## Project Structure
 
 - `main.py` – application entry point
-- `data.py` – data handling logic
-- `database.py` – database access and persistence
-- `predict_route.py` – route prediction logic
-- `ws_manager.py` – WebSocket-related management
-- `frontend/` – web UI files
-- `ml/` – notebooks, training scripts, and model artifacts
-- `requirements.txt` – Python dependencies
+- `data.py` – raw data handling and preprocessing
+- `database.py` – SQLite database access and persistence
+- `predict_route.py` – prediction logic for routes
+- `ws_manager.py` – WebSocket manager for live communication
+- `frontend/` – browser UI assets and pages
+- `generate_notebooks.py` – notebook-generation helper
+- `manifest.json` – project metadata/configuration
+- `road_data.db` – local SQLite database file
+- `road_data.sqbpro` – SQLite database project file
+- `ml/` – exploration, training, prediction scripts, and model outputs
+- `requirements.txt` – base Python dependencies
 - `requirements_ml.txt` – ML-specific dependencies
+- `README.md` – project overview
 
 ## Setup
 
