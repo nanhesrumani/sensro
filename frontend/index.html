@@ -940,7 +940,26 @@ function togglePanel(){
 }
 
 // INIT
-loadSavedCondition();setMode('auto');connectWS();refreshMap();logMsg('SensRo ready','ok');
+// Initialize app: load snapshot immediately (if available), then connect WS and refresh live data
+(async function initApp(){
+  loadSavedCondition();
+  setMode('auto');
+  try{
+    const sres = await fetch('segments.json');
+    if(sres.ok){
+      const pts = await sres.json();
+      if(Array.isArray(pts) && pts.length){
+        renderHistoricalPoints(pts);
+        try{ map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])).pad(0.1)); }catch(e){}
+        logMsg('Loaded snapshot: '+pts.length+' points','ok');
+      }
+    }
+  }catch(e){ /* ignore snapshot load errors */ }
+  connectWS();
+  // RefreshMap will try live API and update the view if backend responds
+  refreshMap();
+  logMsg('SensRo ready','ok');
+})();
 </script>
 </body>
 </html>
