@@ -816,7 +816,20 @@ async function refreshMap(){
   await loadTripsDropdown();
   const tid=document.getElementById('tripSelect').value;
   const url=tid?`/api/segments?trip_id=${tid}`:'/api/segments';
-  const res=await fetch(url); const points=await res.json();
+  let points = [];
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('API fetch failed');
+    points = await res.json();
+  }catch(e){
+    // If live API is unavailable, fall back to static snapshot `segments.json` published with the frontend
+    try{
+      logMsg('Live API unavailable, loading snapshot /segments.json','warn');
+      const sres = await fetch('/segments.json');
+      if(sres.ok) points = await sres.json();
+      else { logMsg('No snapshot found at /segments.json','warn'); }
+    }catch(err){ logMsg('Failed to load snapshot: '+err.message,'error'); }
+  }
   renderHistoricalPoints(points);
   if(tid) loadTripStats(tid);
 }
