@@ -1,0 +1,1 @@
+["speed", "accel_x", "accel_y", "accel_z", "accel_magnitude", "gyro_x", "gyro_y", "gyro_z", "gyro_magnitude", "accuracy", "altitude", "accel_xy", "accel_xz", "accel_yz", "accel_norm_z", "gyro_xy", "gyro_total_turn", "speed_kmh", "speed_bucket", "rough_proxy", "heading_sin", "heading_cos"]

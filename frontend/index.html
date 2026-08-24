@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>SensRo — Live Road Mapper</title>
+<link rel="manifest" href="/static/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg:        #f4f5f7;
+    --surface:   #ffffff;
+    --surface2:  #f8f9fa;
+    --border:    #e2e5ea;
+    --border2:   #d0d5dd;
+    --text:      #1a1f2e;
+    --text2:     #4a5568;
+    --text3:     #8a94a6;
+    --good:      #059669;
+    --good-bg:   #ecfdf5;
+    --good-bdr:  #a7f3d0;
+    --avg:       #d97706;
+    --avg-bg:    #fffbeb;
+    --avg-bdr:   #fde68a;
+    --bad:       #dc2626;
+    --bad-bg:    #fef2f2;
+    --bad-bdr:   #fecaca;
+    --obst:      #ea580c;
+    --obst-bg:   #fff7ed;
+    --obst-bdr:  #fed7aa;
+    --accent:    #2563eb;
+    --accent-bg: #eff6ff;
+    --accent-lt: #bfdbfe;
+    --panel-w:   300px;
+    --topbar-h:  54px;
+    --radius:    8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 14px;
+  }
+
+  /* TOPBAR */
+  #topbar {
+    height: var(--topbar-h);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 18px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  #wordmark {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 2px;
+    flex-shrink: 0;
+  }
+  #wordmark span {
+    color: var(--text3);
+    font-size: 0.72rem;
+    font-weight: 400;
+    letter-spacing: 1px;
+  }
+  .tb-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+  #tripSelect {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border2);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 400;
+    max-width: 170px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #tripSelect:focus { border-color: var(--accent); }
+
+  .tb-btn {
+    background: var(--surface);
+    color: var(--text2);
+    border: 1px solid var(--border2);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .tb-btn:hover { background: var(--bg); border-color: var(--border2); }
+
+  #wsIndicator {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text3); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #wsIndicator.connected { background: var(--good); }
+  #wsIndicator.error     { background: var(--bad); }
+
+  #recIndicator {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--text3); margin-left: auto; flex-shrink: 0;
+  }
+  #recDot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+  #recDot.recording { background: var(--bad); animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  /* LAYOUT */
+  #layout { flex: 1; display: flex; overflow: hidden; position: relative; }
+  #map    { flex: 1; z-index: 1; }
+
+  /* SIDE PANEL */
+  #panel {
+    width: var(--panel-w);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden; flex-shrink: 0; z-index: 10;
+  }
+  #panel-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface2); }
+  .ptab {
+    flex: 1; padding: 11px 6px; text-align: center;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px;
+    color: var(--text3); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    text-transform: uppercase;
+  }
+  .ptab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; padding: 12px; }
+  .tab-content.active { display: flex; flex-direction: column; gap: 10px; }
+
+  /* CARDS */
+  .pcard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+  .pcard-label {
+    font-size: 0.64rem; font-weight: 600; letter-spacing: 1.5px;
+    color: var(--text3); text-transform: uppercase; margin-bottom: 10px;
+  }
+
+  /* TRIP INPUT */
+  #tripNameInput {
+    width: 100%; padding: 8px 10px;
+    background: var(--bg); border: 1px solid var(--border2);
+    color: var(--text); border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
+    margin-bottom: 10px; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  #tripNameInput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  #tripNameInput::placeholder { color: var(--text3); }
+
+  #startBtn {
+    width: 100%; padding: 10px;
+    background: var(--good); border: none;
+    color: #fff; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 600;
+    letter-spacing: 0.5px; cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  #startBtn:hover { background: #047857; }
+  #startBtn:active { transform: scale(0.98); }
+
+  #stopBtn {
+    width: 100%; padding: 10px;
+    background: var(--bad); border: none;
+    color: #fff; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 600;
+    letter-spacing: 0.5px; cursor: pointer; display: none;
+    transition: background 0.15s, transform 0.1s;
+  }
+  #stopBtn:hover { background: #b91c1c; }
+  #stopBtn:active { transform: scale(0.98); }
+
+; }
+  .mode-btn {
+    flex: 1; padding: 7px 4px;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+    border: 1px solid var(--border2); background: var(--bg); color: var(--text3);
+    border-radius: var(--radius); cursor: pointer; transition: all 0.12s;
+  }
+  .mode-btn.active {
+    border-color: var(--accent); color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  /* AUTO BANNER */
+  #autoBanner {
+    display: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    background: var(--surface);
+  }
+  #autoBanner.show { display: block; }
+  #predLabel {
+    font-size: 1.2rem; font-weight: 600; letter-spacing: 1px;
+  }
+  #predConf { font-size: 0.7rem; color: var(--text3); margin-top: 3px; font-family: 'DM Mono', monospace; }
+  #predProb { font-size: 0.65rem; color: var(--text3); margin-top: 4px; font-family: 'DM Mono', monospace; }
+  .banner-btns { display: flex; gap: 6px; margin-top: 10px; }
+  #confirmBtn {
+    flex: 2; padding: 8px;
+    background: var(--good); border: none;
+    color: #fff; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.8rem;
+    cursor: pointer; letter-spacing: 0.3px; transition: background 0.12s;
+  }
+  #confirmBtn:hover { background: #047857; }
+  #skipBtn {
+    flex: 1; padding: 8px;
+    background: var(--bg); border: 1px solid var(--border2);
+    color: var(--text2); border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.8rem; cursor: pointer;
+    transition: background 0.12s;
+  }
+  #skipBtn:hover { background: var(--border); }
+
+  /* AUTO STATUS */
+  #autoStatusText {
+    font-size: 0.7rem; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-top: 8px;
+  }
+
+  /* MANUAL SECTION */
+  #manualSection { display: none; }
+  .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cond-btn {
+    padding: 14px 6px; border: 1.5px solid; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600;
+    letter-spacing: 0.5px; cursor: pointer; background: var(--bg);
+    transition: background 0.12s, transform 0.1s;
+  }
+  .cond-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .cond-btn:not(:disabled):hover { filter: brightness(0.96); }
+  .cond-btn:active { transform: scale(0.97); }
+  .cond-btn[data-c=good]        { border-color: var(--good); color: var(--good); }
+  .cond-btn[data-c=avg]         { border-color: var(--avg);  color: var(--avg); }
+  .cond-btn[data-c=bad]         { border-color: var(--bad);  color: var(--bad); }
+  .cond-btn[data-c=obstruction] { border-color: var(--obst); color: var(--obst); }
+  .cond-btn[data-c=good].selected        { background: var(--good-bg); }
+  .cond-btn[data-c=avg].selected         { background: var(--avg-bg); }
+  .cond-btn[data-c=bad].selected         { background: var(--bad-bg); }
+  .cond-btn[data-c=obstruction].selected { background: var(--obst-bg); }
+  .cond-btn.flash { opacity: 0.4; }
+
+  /* SENSOR BOX */
+  #sensorBox {
+    font-family: 'DM Mono', monospace; font-size: 0.66rem;
+    color: var(--text3); line-height: 2;
+  }
+  #sensorBox b { color: var(--text2); font-weight: 500; }
+
+  /* MAP TAB */
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text2); margin-bottom: 6px; }
+  .ldot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 10px 12px;
+  }
+  .stat-card-label {
+    font-size: 0.62rem; font-weight: 600; letter-spacing: 1.5px;
+    color: var(--text3); text-transform: uppercase; margin-bottom: 8px;
+  }
+  .stat-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text3); padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row span:last-child { color: var(--text); font-weight: 500; }
+
+  #pointList {
+    font-family: 'DM Mono', monospace; font-size: 0.63rem;
+    color: var(--text3); max-height: 180px; overflow-y: auto;
+  }
+  #pointList div {
+    border-bottom: 1px solid var(--border); padding: 5px 2px;
+    cursor: pointer; transition: color 0.1s;
+  }
+  #pointList div:hover { color: var(--text); }
+
+  /* LOG TAB */
+  #logList { font-family: 'DM Mono', monospace; font-size: 0.63rem; color: var(--text3); display: flex; flex-direction: column; gap: 2px; }
+  #logList div { border-bottom: 1px solid var(--border); padding: 5px 2px; }
+  #logList .log-warn  { color: var(--avg); }
+  #logList .log-error { color: var(--bad); }
+  #logList .log-ok    { color: var(--good); }
+  #logList .log-alert { color: var(--obst); font-weight: 500; }
+
+  /* PROXIMITY ALERT */
+  #proximityAlert {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    padding: 16px 20px 14px;
+    background: var(--bad-bg);
+    border-bottom: 2px solid var(--bad);
+    text-align: center;
+  }
+  #proximityAlert.show { display: block; animation: alertSlideIn 0.3s ease; }
+  @keyframes alertSlideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .alert-icon  { font-size: 1.4rem; line-height: 1; }
+  .alert-title { font-size: 0.95rem; font-weight: 700; color: var(--bad); letter-spacing: 1px; margin: 5px 0 3px; text-transform: uppercase; }
+  .alert-body  { font-size: 0.8rem; color: var(--text2); }
+  .alert-dist  { font-size: 0.72rem; color: var(--bad); margin-top: 3px; font-weight: 600; }
+  .alert-close {
+    display: inline-block; margin-top: 10px;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--text3);
+    cursor: pointer; border: 1px solid var(--border2); border-radius: var(--radius);
+    padding: 4px 14px; background: var(--surface); transition: color 0.15s;
+  }
+  .alert-close:hover { color: var(--text); }
+
+  /* LIVE PULSE */
+  .live-pulse {
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(37,99,235,0.5);
+    animation: livePulse 1.4s ease-out infinite;
+  }
+  @keyframes livePulse {
+    0%   { box-shadow: 0 0 0 0 rgba(37,99,235,0.5); }
+    100% { box-shadow: 0 0 0 14px rgba(37,99,235,0); }
+  }
+
+  /* MOBILE */
+  #panelToggle {
+    display: none; position: fixed; bottom: 20px; right: 20px; z-index: 500;
+    width: 50px; height: 50px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 1.2rem; border: none;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+    align-items: center; justify-content: center;
+  }
+  @media (max-width: 700px) {
+    #panel {
+      position: fixed; top: var(--topbar-h); right: 0; bottom: 0; width: 100%;
+      transform: translateX(100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); z-index: 200;
+    }
+    #panel.open { transform: translateX(0); }
+    #panelToggle { display: flex; }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  /* CONDITION BADGE COLORS in popups */
+  .leaflet-popup-content b { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- PROXIMITY ALERT -->
+<div id="proximityAlert">
+  <div class="alert-icon">⚠️</div>
+  <div class="alert-title">Bad Road Ahead</div>
+  <div class="alert-body" id="alertBody">Hazard reported nearby</div>
+  <div class="alert-dist" id="alertDist"></div>
+  <button class="alert-close" onclick="dismissAlert()">Dismiss</button>
+</div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="wordmark">SENSRO <span>// LIVE</span></div>
+  <div class="tb-sep"></div>
+  <select id="tripSelect" onchange="switchViewTrip()">
+    <option value="">— All trips —</option>
+  </select>
+  <button class="tb-btn" onclick="refreshMap()">↻ Refresh</button>
+  <div class="tb-sep"></div>
+  <div id="wsIndicator" title="Alert network"></div>
+  <div id="recIndicator">
+    <div id="recDot"></div>
+    <span id="recLabel">IDLE</span>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div id="layout">
+  <div id="map"></div>
+
+  <div id="panel">
+    <div id="panel-tabs">
+      <div class="ptab active" onclick="switchTab('record')">Record</div>
+      <div class="ptab" onclick="switchTab('map')">Map</div>
+      <div class="ptab" onclick="switchTab('log')">Log</div>
+    </div>
+
+    <!-- RECORD TAB -->
+    <div id="tab-record" class="tab-content active">
+      <div class="pcard">
+        <div class="pcard-label">New Trip</div>
+        <input id="tripNameInput" type="text" placeholder="Trip name (optional)">
+        <button id="startBtn" onclick="startTrip()">▶ Start Trip</button>
+        <button id="stopBtn"  onclick="stopTrip()">■ Stop Trip</button>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-label">Mode</div>
+        <div class="mode-row">
+          <button class="mode-btn active" id="modeAuto"   onclick="setMode('auto')">Auto</button>
+          <button class="mode-btn"        id="modeManual" onclick="setMode('manual')">Manual</button>
+        </div>
+        <div id="autoStatusText">Ready to predict</div>
+      </div>
+
+      <div id="autoBanner">
+        <div id="predLabel">—</div>
+        <div id="predConf"></div>
+        <div id="predProb"></div>
+        <div class="banner-btns">
+          <button id="confirmBtn" onclick="confirmPrediction()">✓ Save</button>
+          <button id="skipBtn"    onclick="skipPrediction()">Skip</button>
+        </div>
+      </div>
+
+      <div id="manualSection" class="pcard">
+        <div class="pcard-label">Tag Condition</div>
+        <div class="cond-grid">
+          <button class="cond-btn" data-c="good"        onclick="tag('good')"        disabled>Good</button>
+          <button class="cond-btn" data-c="avg"         onclick="tag('avg')"         disabled>Average</button>
+          <button class="cond-btn" data-c="bad"         onclick="tag('bad')"         disabled>Bad</button>
+          <button class="cond-btn" data-c="obstruction" onclick="tag('obstruction')" disabled>Obstruction</button>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-label">Sensors</div>
+        <div id="sensorBox">
+          <b>GPS:</b> waiting…<br>
+          <b>Speed:</b> —<br>
+          <b>Accuracy:</b> —<br>
+          <b>Altitude:</b> —<br>
+          <b>Heading:</b> —<br>
+          <b>Accel:</b> —<br>
+          <b>Gyro:</b> —
+        </div>
+      </div>
+    </div>
+
+    <!-- MAP TAB -->
+    <div id="tab-map" class="tab-content">
+      <div class="pcard">
+        <div class="pcard-label">Legend</div>
+        <div class="legend-row"><div class="ldot" style="background:var(--good)"></div> Good</div>
+        <div class="legend-row"><div class="ldot" style="background:var(--avg)"></div>  Average</div>
+        <div class="legend-row"><div class="ldot" style="background:var(--bad)"></div>  Bad</div>
+        <div class="legend-row"><div class="ldot" style="background:var(--obst)"></div> Obstruction</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Summary</div>
+        <div class="stat-row"><span>Total points</span><span id="s-total">—</span></div>
+        <div class="stat-row"><span>Good</span><span id="s-good" style="color:var(--good)">—</span></div>
+        <div class="stat-row"><span>Average</span><span id="s-avg" style="color:var(--avg)">—</span></div>
+        <div class="stat-row"><span>Bad</span><span id="s-bad" style="color:var(--bad)">—</span></div>
+        <div class="stat-row"><span>Obstruction</span><span id="s-obst" style="color:var(--obst)">—</span></div>
+      </div>
+      <div id="tripStatsBox"></div>
+      <div class="stat-card">
+        <div class="stat-card-label">Recent Points</div>
+        <div id="pointList"></div>
+      </div>
+    </div>
+
+    <!-- LOG TAB -->
+    <div id="tab-log" class="tab-content">
+      <div id="logList"></div>
+    </div>
+  </div>
+</div>
+
+<button id="panelToggle" onclick="togglePanel()">☰</button>
+
+<script>
+const AUTO_INTERVAL_MS = 3000;
+const MANUAL_SEND_MS   = 300;
+const ALERT_RADIUS_M   = 200;
+const ALERT_DISMISS_MS = 15000;
+const COLORS = { good:'#059669', avg:'#d97706', bad:'#dc2626', obstruction:'#ea580c' };
+
+let tripId=null, mode='auto', selectedCondition=null;
+let gpsData=null, accelData={x:null,y:null,z:null}, gyroData={x:null,y:null,z:null};
+let watchId=null, autoTimer=null, manualTimer=null, lastPred=null;
+let sentCount=0, ws=null, alertDismissTimer=null, bannerHideTimer=null;
+let liveMarker=null, allPoints=[], polylines=[], markers=[], panelOpen=false;
+let audioCtx=null;
+
+// MAP
+const map = L.map('map',{zoomControl:true}).setView([20.5937,78.9629],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OpenStreetMap', maxZoom:19
+}).addTo(map);
+
+// AUDIO
+function getAudioCtx(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function beepAlert(){
+  try{
+    const ctx=getAudioCtx(), freqs=[880,660,880]; let t=ctx.currentTime;
+    freqs.forEach(freq=>{
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type='square'; osc.frequency.setValueAtTime(freq,t);
+      gain.gain.setValueAtTime(0.18,t);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+      osc.start(t); osc.stop(t+0.18); t+=0.22;
+    });
+  }catch(e){}
+}
+
+// WEBSOCKET
+function connectWS(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen =()=>{ setWsState('connected'); logMsg('Alert network connected','ok'); };
+  ws.onclose=()=>{ setWsState('error'); logMsg('Alert network disconnected — retrying','warn');
+                   setTimeout(connectWS,5000); };
+  ws.onerror=()=> setWsState('error');
+  ws.onmessage=evt=>{
+    let msg; try{msg=JSON.parse(evt.data);}catch{return;}
+    if(msg.type==='road_alert') handleRoadAlert(msg);
+  };
+}
+function setWsState(s){ document.getElementById('wsIndicator').className=s; }
+
+// ALERT
+function handleRoadAlert(msg){
+  let dist=null;
+  if(gpsData){
+    dist=haversineM(gpsData.lat,gpsData.lng,msg.lat,msg.lng);
+    if(dist>ALERT_RADIUS_M) return;
+  }
+  const label=msg.condition==='obstruction'?'Obstruction':'Bad road';
+  document.getElementById('alertBody').textContent=
+    `${label} reported ${dist!==null?Math.round(dist)+'m away':'nearby'}`;
+  document.getElementById('alertDist').textContent=
+    dist!==null?`Within ${ALERT_RADIUS_M}m of your location`:'GPS unavailable — shown regardless';
+  document.getElementById('proximityAlert').classList.add('show');
+  logMsg(`ALERT: ${label}${dist!==null?' ('+Math.round(dist)+'m)':''}`, 'alert');
+  if(navigator.vibrate) navigator.vibrate([300,100,300,100,500]);
+  beepAlert();
+  clearTimeout(alertDismissTimer);
+  alertDismissTimer=setTimeout(dismissAlert,ALERT_DISMISS_MS);
+}
+function dismissAlert(){
+  document.getElementById('proximityAlert').classList.remove('show');
+  clearTimeout(alertDismissTimer);
+}
+
+function haversineM(lat1,lng1,lat2,lng2){
+  const R=6371000;
+  const p1=lat1*Math.PI/180,p2=lat2*Math.PI/180;
+  const dp=(lat2-lat1)*Math.PI/180,dl=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// SENSORS
+function mag(x,y,z){return x!=null?Math.sqrt(x*x+y*y+z*z).toFixed(3):null;}
+
+if(window.DeviceMotionEvent){
+  window.addEventListener('devicemotion',e=>{
+    const a=e.accelerationIncludingGravity||e.acceleration;
+    if(a) accelData={x:a.x,y:a.y,z:a.z};
+    if(e.rotationRate) gyroData={x:e.rotationRate.alpha,y:e.rotationRate.beta,z:e.rotationRate.gamma};
+  });
+}
+async function requestSensors(){
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+    try{await DeviceMotionEvent.requestPermission();}catch(e){}
+  }
+}
+setInterval(()=>{
+  const g=gpsData,am=mag(accelData.x,accelData.y,accelData.z),gm=mag(gyroData.x,gyroData.y,gyroData.z);
+  document.getElementById('sensorBox').innerHTML=`
+    <b>GPS:</b> ${g?g.lat.toFixed(6)+', '+g.lng.toFixed(6):'waiting\u2026'}<br>
+    <b>Speed:</b> ${g?.speed!=null?(g.speed*3.6).toFixed(1)+' km/h':'\u2014'}<br>
+    <b>Accuracy:</b> ${g?.accuracy!=null?g.accuracy.toFixed(1)+' m':'\u2014'}<br>
+    <b>Altitude:</b> ${g?.altitude!=null?g.altitude.toFixed(1)+' m':'\u2014'}<br>
+    <b>Heading:</b> ${g?.heading!=null?g.heading.toFixed(1)+'\u00b0':'\u2014'}<br>
+    <b>Accel:</b> ${accelData.x!=null?accelData.x.toFixed(2)+'/'+accelData.y.toFixed(2)+'/'+accelData.z.toFixed(2)+' ['+am+']':'\u2014'}<br>
+    <b>Gyro:</b> ${gyroData.x!=null?gyroData.x.toFixed(2)+'/'+gyroData.y.toFixed(2)+'/'+gyroData.z.toFixed(2)+' ['+gm+']':'\u2014'}
+  `;
+},500);
+
+// GPS
+function startGPS(){
+  if(!navigator.geolocation){logMsg('GPS not available','error');return;}
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    gpsData={lat:pos.coords.latitude,lng:pos.coords.longitude,
+             speed:pos.coords.speed,accuracy:pos.coords.accuracy,
+             altitude:pos.coords.altitude,heading:pos.coords.heading};
+    updateLiveMarker();
+  },err=>logMsg('GPS: '+err.message,'warn'),
+  {enableHighAccuracy:true,maximumAge:0,timeout:10000});
+}
+function stopGPS(){if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}}
+
+function updateLiveMarker(){
+  if(!gpsData) return;
+  const ll=[gpsData.lat,gpsData.lng];
+  if(!liveMarker){
+    const icon=L.divIcon({className:'',html:'<div class="live-pulse"></div>',iconSize:[13,13],iconAnchor:[6,6]});
+    liveMarker=L.marker(ll,{icon,zIndexOffset:1000}).addTo(map);
+  } else { liveMarker.setLatLng(ll); }
+}
+
+// TRIP CONTROL
+async function startTrip(){
+  await requestSensors();
+  try{getAudioCtx().resume();}catch(e){}
+  const name=document.getElementById('tripNameInput').value||'Trip '+new Date().toLocaleTimeString();
+  const res=await fetch('/api/trips',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const data=await res.json();
+  tripId=data.trip_id; sentCount=0;
+  startGPS();
+  document.querySelectorAll('.cond-btn').forEach(b=>b.disabled=false);
+  document.getElementById('startBtn').style.display='none';
+  document.getElementById('stopBtn').style.display='block';
+  document.getElementById('recDot').classList.add('recording');
+  document.getElementById('recLabel').textContent='REC #'+tripId;
+  logMsg('Trip started: '+name,'ok');
+  if(mode==='auto') startAutoMode(); else startManualMode();
+}
+
+async function stopTrip(){
+  if(!tripId) return;
+  stopAutoMode(); stopManualMode();
+  await fetch(`/api/trips/${tripId}/end`,{method:'PATCH'});
+  stopGPS();
+  if(liveMarker){map.removeLayer(liveMarker);liveMarker=null;}
+  document.querySelectorAll('.cond-btn').forEach(b=>b.disabled=true);
+  document.getElementById('startBtn').style.display='block';
+  document.getElementById('stopBtn').style.display='none';
+  document.getElementById('recDot').classList.remove('recording');
+  document.getElementById('recLabel').textContent='IDLE';
+  hideBanner();
+  logMsg('Trip #'+tripId+' saved','ok');
+  tripId=null;
+  await refreshMap();
+}
+
+// MODE
+function setMode(m){
+  mode=m;
+  document.getElementById('modeAuto').classList.toggle('active',m==='auto');
+  document.getElementById('modeManual').classList.toggle('active',m==='manual');
+  document.getElementById('manualSection').style.display=m==='manual'?'block':'none';
+  // Enable condition buttons in manual mode always; sends are gated on tripId inside tag()
+  document.querySelectorAll('.cond-btn').forEach(b=>b.disabled=m==='manual'?false:!tripId);
+  document.getElementById('autoStatusText').textContent=m==='auto'
+    ?(tripId?'🟢 Predicting every 3s':'Starts when recording')
+    :(tripId?'Tap a button to tag condition':'Start a trip, then tag condition');
+  if(tripId){
+    if(m==='auto'){stopManualMode();startAutoMode();}
+    else{stopAutoMode();hideBanner();startManualMode();}
+  }
+}
+
+// AUTO MODE
+function startAutoMode(){
+  stopAutoMode();
+  document.getElementById('autoStatusText').textContent='🟢 Predicting every 3s';
+  autoTimer=setInterval(runAutoPrediction,AUTO_INTERVAL_MS);
+  runAutoPrediction();
+}
+function stopAutoMode(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;}}
+
+async function runAutoPrediction(){
+  if(!gpsData||!tripId) return;
+  try{
+    const res=await fetch('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(buildSensorPayload())});
+    const data=await res.json();
+    if(data.error){
+      document.getElementById('autoStatusText').textContent='⚠ No model — switch to manual';
+      logMsg('Predict: '+data.error,'warn'); return;
+    }
+    const fullPayload={...buildPayload(),condition:data.condition};
+    await saveReading(fullPayload);
+    addLivePoint(fullPayload);
+    sentCount++;
+    document.getElementById('autoStatusText').textContent=
+      `🟢 Auto — ${sentCount} pts — ${data.condition} (${(data.confidence*100).toFixed(0)}%)`;
+    showBannerBrief(data);
+    logMsg(`[Auto] ${data.condition} ${(data.confidence*100).toFixed(0)}%`);
+  }catch(e){logMsg('Predict error: '+e.message,'error');}
+}
+
+function showBannerBrief(data){
+  const banner=document.getElementById('autoBanner');
+  const color=COLORS[data.condition]||'var(--text)';
+  banner.style.borderColor=color;
+  banner.classList.add('show');
+  document.getElementById('predLabel').textContent=data.condition.charAt(0).toUpperCase()+data.condition.slice(1);
+  document.getElementById('predLabel').style.color=color;
+  document.getElementById('predConf').textContent=
+    `Confidence: ${(data.confidence*100).toFixed(1)}%  ·  ${data.model}`;
+  document.getElementById('predProb').textContent=data.probabilities&&Object.keys(data.probabilities).length
+    ?Object.entries(data.probabilities).map(([k,v])=>`${k}: ${(v*100).toFixed(0)}%`).join('  '):'';
+  document.querySelector('.banner-btns').style.display='none';
+  clearTimeout(bannerHideTimer);
+  bannerHideTimer=setTimeout(hideBanner,2500);
+}
+
+function hideBanner(){document.getElementById('autoBanner').classList.remove('show');lastPred=null;}
+
+async function confirmPrediction(){
+  if(!lastPred||!tripId) return;
+  await saveReading(lastPred); addLivePoint(lastPred); sentCount++;
+  logMsg(`[Confirm] ${lastPred.condition}`,'ok'); hideBanner();
+}
+function skipPrediction(){logMsg('[Skip] prediction discarded');hideBanner();}
+
+// MANUAL MODE
+function startManualMode(){stopManualMode();manualTimer=setInterval(sendManualReading,MANUAL_SEND_MS);}
+function stopManualMode(){if(manualTimer){clearInterval(manualTimer);manualTimer=null;}}
+
+function loadSavedCondition(){
+  const s=localStorage.getItem('road-collector-condition');
+  if(s&&['good','avg','bad','obstruction'].includes(s)){selectedCondition=s;renderConditionBtns();}
+}
+function renderConditionBtns(){
+  document.querySelectorAll('.cond-btn').forEach(b=>b.classList.toggle('selected',b.dataset.c===selectedCondition));
+}
+async function tag(condition){
+  if(!tripId){
+    logMsg('Start a trip first to tag road conditions','warn');
+    document.getElementById('autoStatusText').textContent='⚠ Start a trip first';
+    return;
+  }
+  selectedCondition=(selectedCondition===condition)?null:condition;
+  renderConditionBtns();
+  localStorage.setItem('road-collector-condition',selectedCondition||'');
+  const btn=document.querySelector(`.cond-btn[data-c="${condition}"]`);
+  btn.classList.add('flash'); setTimeout(()=>btn.classList.remove('flash'),200);
+  if(selectedCondition) await sendManualReading(true);
+}
+async function sendManualReading(force=false){
+  if(!tripId||!selectedCondition||!gpsData) return;
+  const payload={...buildPayload(),condition:selectedCondition};
+  try{
+    const res=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!res.ok){logMsg('Send failed: '+(await res.text()),'error');return;}
+    addLivePoint(payload); sentCount++;
+  }catch(e){logMsg('Send error: '+e.message,'error');}
+}
+
+// LIVE POINT ON MAP
+function addLivePoint(p){
+  const color=COLORS[p.condition];
+  const c=L.circleMarker([p.lat,p.lng],{radius:6,color,fillColor:color,fillOpacity:0.85,weight:1.5});
+  c.bindPopup(`<b style="color:${color}">${p.condition.charAt(0).toUpperCase()+p.condition.slice(1)}</b><br>
+    <small>Live · Trip #${p.trip_id}</small><br>
+    ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}<br>
+    <b>Speed:</b> ${p.speed!=null?(p.speed*3.6).toFixed(1)+' km/h':'—'}`);
+  c.addTo(map); markers.push(c);
+  const prev=[...allPoints].reverse().find(x=>x.trip_id===p.trip_id);
+  if(prev){
+    const l=L.polyline([[prev.lat,prev.lng],[p.lat,p.lng]],{color,weight:4,opacity:0.75}).addTo(map);
+    polylines.push(l);
+  }
+  allPoints.push(p);
+  updateSummary(allPoints); renderPointList(allPoints);
+  if(tripId) map.panTo([p.lat,p.lng],{animate:true});
+}
+
+// PAYLOAD BUILDERS
+function buildSensorPayload(){
+  const m=parseFloat(mag(accelData.x,accelData.y,accelData.z));
+  const gm=parseFloat(mag(gyroData.x,gyroData.y,gyroData.z));
+  return{
+    speed:gpsData?.speed,accuracy:gpsData?.accuracy,altitude:gpsData?.altitude,heading:gpsData?.heading,
+    accel_x:accelData.x,accel_y:accelData.y,accel_z:accelData.z,accel_magnitude:isNaN(m)?null:m,
+    gyro_x:gyroData.x,gyro_y:gyroData.y,gyro_z:gyroData.z,gyro_magnitude:isNaN(gm)?null:gm
+  };
+}
+function buildPayload(){return{trip_id:tripId,lat:gpsData.lat,lng:gpsData.lng,...buildSensorPayload()};}
+async function saveReading(payload){
+  try{await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
+  catch(e){logMsg('Save failed: '+e.message,'error');}
+}
+
+// MAP: HISTORICAL LOAD
+async function refreshMap(){
+  await loadTripsDropdown();
+  const tid=document.getElementById('tripSelect').value;
+  const url=tid?`/api/segments?trip_id=${tid}`:'/api/segments';
+  const res=await fetch(url); const points=await res.json();
+  renderHistoricalPoints(points);
+  if(tid) loadTripStats(tid);
+}
+async function switchViewTrip(){await refreshMap();}
+async function loadTripsDropdown(){
+  const res=await fetch('/api/trips'); const trips=await res.json();
+  const sel=document.getElementById('tripSelect');
+  while(sel.options.length>1) sel.remove(1);
+  trips.forEach(t=>{const o=document.createElement('option');o.value=t.id;
+    o.textContent=`#${t.id} ${t.name} (${t.point_count})`;sel.appendChild(o);});
+}
+function renderHistoricalPoints(points){
+  polylines.forEach(p=>map.removeLayer(p)); markers.forEach(m=>map.removeLayer(m));
+  polylines=[];markers=[];allPoints=points;
+  if(!points.length){updateSummary([]);renderPointList([]);return;}
+  const byTrip={};
+  points.forEach(p=>{if(!byTrip[p.trip_id])byTrip[p.trip_id]=[];byTrip[p.trip_id].push(p);});
+  Object.values(byTrip).forEach(tp=>{
+    for(let i=0;i<tp.length;i++){
+      const p=tp[i],color=COLORS[p.condition];
+      const c=L.circleMarker([p.lat,p.lng],{radius:6,color,fillColor:color,fillOpacity:0.85,weight:1.5});
+      c.bindPopup(`<b style="color:${color}">${p.condition.charAt(0).toUpperCase()+p.condition.slice(1)}</b><br>
+        <small>${p.timestamp}</small><br>Trip #${p.trip_id}<br>${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}<br>
+        <b>Speed:</b> ${p.speed!=null?(p.speed*3.6).toFixed(1)+' km/h':'—'}`);
+      c.addTo(map);markers.push(c);
+      if(i>0){const prev=tp[i-1];
+        const l=L.polyline([[prev.lat,prev.lng],[p.lat,p.lng]],{color,weight:4,opacity:0.75}).addTo(map);
+        polylines.push(l);}
+    }
+  });
+  const ll=points.map(p=>[p.lat,p.lng]);
+  if(ll.length) map.fitBounds(L.latLngBounds(ll).pad(0.1));
+  updateSummary(points);renderPointList(points);
+}
+async function loadTripStats(tid){
+  const res=await fetch(`/api/trips/${tid}/stats`);const stats=await res.json();
+  document.getElementById('tripStatsBox').innerHTML=stats.map(s=>`
+    <div class="stat-card" style="border-left: 3px solid ${COLORS[s.condition]}">
+      <div class="stat-card-label" style="color:${COLORS[s.condition]}">${s.condition.charAt(0).toUpperCase()+s.condition.slice(1)} (${s.count})</div>
+      <div class="stat-row"><span>Avg Speed</span><span>${s.avg_speed!=null?(s.avg_speed*3.6).toFixed(1)+' km/h':'—'}</span></div>
+      <div class="stat-row"><span>Avg Accel</span><span>${s.avg_accel!=null?parseFloat(s.avg_accel).toFixed(3):'—'}</span></div>
+      <div class="stat-row"><span>Avg Gyro</span><span>${s.avg_gyro!=null?parseFloat(s.avg_gyro).toFixed(3):'—'}</span></div>
+    </div>`).join('');
+}
+function updateSummary(points){
+  const c={good:0,avg:0,bad:0,obstruction:0};points.forEach(p=>c[p.condition]++);
+  document.getElementById('s-total').textContent=points.length;
+  document.getElementById('s-good').textContent=c.good;document.getElementById('s-avg').textContent=c.avg;
+  document.getElementById('s-bad').textContent=c.bad;document.getElementById('s-obst').textContent=c.obstruction;
+}
+function renderPointList(points){
+  document.getElementById('pointList').innerHTML=[...points].reverse().slice(0,80).map(p=>`
+    <div onclick="map.setView([${p.lat},${p.lng}],17)" style="color:${COLORS[p.condition]}">
+      ${p.condition.charAt(0).toUpperCase()+p.condition.slice(1)} · ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}
+      ${p.speed!=null?' · '+(p.speed*3.6).toFixed(0)+' km/h':''}
+    </div>`).join('');
+}
+
+// LOG
+function logMsg(msg,type=''){
+  const list=document.getElementById('logList'),d=document.createElement('div');
+  if(type) d.classList.add('log-'+type);
+  d.textContent=new Date().toLocaleTimeString()+' — '+msg;
+  list.prepend(d);
+  if(list.children.length>120) list.removeChild(list.lastChild);
+}
+
+// UI
+function switchTab(name){
+  document.querySelectorAll('.ptab').forEach((t,i)=>{
+    t.classList.toggle('active',['record','map','log'][i]===name);});
+  document.querySelectorAll('.tab-content').forEach(t=>{
+    t.classList.toggle('active',t.id==='tab-'+name);});
+}
+function togglePanel(){
+  panelOpen=!panelOpen;
+  document.getElementById('panel').classList.toggle('open',panelOpen);
+}
+
+// INIT
+loadSavedCondition();setMode('auto');connectWS();refreshMap();logMsg('SensRo ready','ok');
+</script>
+</body>
+</html>
