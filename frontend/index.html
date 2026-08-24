@@ -816,23 +816,36 @@ async function refreshMap(){
   await loadTripsDropdown();
   const tid=document.getElementById('tripSelect').value;
   const url=tid?`/api/segments?trip_id=${tid}`:'/api/segments';
-  let points = [];
+  // Do not overwrite an already-rendered snapshot with an empty live response.
+  // If live API returns a non-empty array, use it; otherwise keep the current view and try snapshot.
   try{
     const res = await fetch(url);
-    if(!res.ok) throw new Error('API fetch failed');
-    points = await res.json();
+    const ctype = res.headers.get('content-type') || '';
+    if(res.ok && ctype.includes('application/json')){
+      const livePoints = await res.json();
+      if(Array.isArray(livePoints) && livePoints.length>0){
+        renderHistoricalPoints(livePoints);
+        return;
+      } else {
+        logMsg('Live API returned no points; keeping snapshot view','warn');
+        return;
+      }
+    }
+    // If response is not JSON (e.g. Pages returned HTML), fall through to snapshot
   }catch(e){
-    // If live API is unavailable, fall back to static snapshot `segments.json` published with the frontend
-    try{
-    logMsg('Live API unavailable, loading snapshot segments.json','warn');
-    // Use a relative path so the snapshot loads correctly when the site is hosted
-    // under a subpath (e.g. https://<user>.github.io/<repo>/)
-    const sres = await fetch('segments.json');
-      if(sres.ok) points = await sres.json();
-      else { logMsg('No snapshot found at /segments.json','warn'); }
-    }catch(err){ logMsg('Failed to load snapshot: '+err.message,'error'); }
+    logMsg('Live API unavailable, falling back to snapshot','warn');
   }
-  renderHistoricalPoints(points);
+
+  // Fallback: load snapshot and render
+  try{
+    const sres = await fetch('segments.json');
+    if(sres.ok){
+      const pts = await sres.json();
+      renderHistoricalPoints(pts);
+    } else {
+      logMsg('No snapshot found at segments.json','warn');
+    }
+  }catch(err){ logMsg('Failed to load snapshot: '+err.message,'error'); }
   if(tid) loadTripStats(tid);
 }
 async function switchViewTrip(){await refreshMap();}
