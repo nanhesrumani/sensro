@@ -49,6 +49,68 @@ pip install -r requirements_ml.txt
 python main.py
 ```
 
+## Hosting the frontend (GitHub Pages)
+
+- The static frontend in `frontend/` is published to GitHub Pages (gh-pages branch).
+- GitHub Pages serves only static files — it cannot run the Python backend.
+- The frontend is implemented to prefer the live backend API (`/api/...`) and falls back to a snapshot file `/segments.json` when the backend is unavailable.
+
+To publish the frontend (push the `frontend/` folder to the `gh-pages` branch):
+
+```bash
+git subtree push --prefix frontend origin gh-pages
+```
+
+## Snapshot workflow (read-only Pages site + on-demand backend)
+
+1. Run your backend (locally or on a host) when you want to accept writes:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+2. Export the current segments (either from the running API or directly from the local DB):
+
+- Using the running backend API:
+
+```bash
+python3 tools/export_segments.py --backend http://localhost:8000
+```
+
+- Or export directly from the local SQLite DB (`road_data.db`):
+
+```bash
+python3 tools/export_segments_from_db.py --db road_data.db --out frontend/segments.json
+```
+
+3. Commit and publish the snapshot so GitHub Pages shows the latest data:
+
+```bash
+git add frontend/segments.json
+git commit -m "Snapshot: update segments.json"
+git subtree push --prefix frontend origin gh-pages
+```
+
+Notes:
+- While the backend is offline the site is read-only and uses `segments.json` for historical data.
+- To accept live writes or WebSocket alerts, the backend must be running and reachable (CORS for `https://<your-username>.github.io` is already added in `main.py`).
+
+## Deploying the backend (recommended options)
+
+- Use Render, Vercel, Fly, Railway, or a small VM to host the Python FastAPI service. Example start command for hosts that provide `$PORT`:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+- If you deploy, update the frontend to point to the deployed backend URL (or keep using relative `/api` if you proxy or host backend under the same domain). You can also keep the snapshot workflow running for Pages.
+
+## Tools
+
+- `tools/export_segments.py` — fetches `/api/segments` from a running backend and writes `frontend/segments.json`.
+- `tools/export_segments_from_db.py` — exports readings directly from the local `road_data.db` into `frontend/segments.json`.
+
+
 ## Notes
 
 This project includes a local SQLite database and a machine learning workflow under the `ml/` directory. You may need to ensure the required model files and data sources are present before running prediction or training tasks.
