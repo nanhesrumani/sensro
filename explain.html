@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sensro — Road Quality Intelligence System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --border-light: #eeece6;
+    --text-primary: #1a1916;
+    --text-secondary: #6b6860;
+    --text-tertiary: #9c9a92;
+
+    --teal-50: #e1f5ee;
+    --teal-100: #9fe1cb;
+    --teal-600: #0f6e56;
+    --teal-800: #085041;
+
+    --blue-50: #e6f1fb;
+    --blue-100: #b5d4f4;
+    --blue-600: #185fa5;
+    --blue-800: #0c447c;
+
+    --purple-50: #eeedfe;
+    --purple-100: #cecbf6;
+    --purple-600: #534ab7;
+    --purple-800: #3c3489;
+
+    --amber-50: #faeeda;
+    --amber-100: #fac775;
+    --amber-600: #854f0b;
+    --amber-800: #633806;
+
+    --green-50: #eaf3de;
+    --green-100: #c0dd97;
+    --green-600: #3b6d11;
+    --green-800: #27500a;
+
+    --coral-50: #faece7;
+    --coral-100: #f5c4b3;
+    --coral-600: #993c1d;
+    --coral-800: #712b13;
+
+    --gray-50: #f1efe8;
+    --gray-100: #d3d1c7;
+    --gray-600: #5f5e5a;
+    --gray-800: #444441;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  header .eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 12px;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+  }
+
+  header p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .chart-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* ─── PHASE BLOCKS ─── */
+  .phase {
+    margin-bottom: 0;
+    position: relative;
+  }
+
+  .phase-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+    padding-left: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .phase-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+
+  .phase-content {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 0 0 8px;
+  }
+
+  /* ─── CONNECTOR ─── */
+  .connector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 0;
+    gap: 4px;
+    flex-direction: column;
+  }
+
+  .arrow-line {
+    width: 2px;
+    background: var(--text-tertiary);
+    flex: 1;
+    min-height: 20px;
+  }
+
+  .arrow-down {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--text-tertiary);
+  }
+
+  .connector-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 4px 0;
+    position: relative;
+    height: 40px;
+  }
+
+  /* ─── NODE CARD ─── */
+  .node {
+    border-radius: 10px;
+    padding: 14px 18px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    min-width: 180px;
+    max-width: 240px;
+    flex: 1;
+    position: relative;
+  }
+
+  .node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    filter: brightness(0.97);
+  }
+
+  .node:active { transform: translateY(0); }
+
+  .node-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+
+  .node-sub {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.75;
+    line-height: 1.4;
+  }
+
+  .node-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-top: 7px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ─── COLOR THEMES ─── */
+  .c-teal   { background: var(--teal-50);   border-color: var(--teal-100);   color: var(--teal-800); }
+  .c-teal   .node-tag { background: var(--teal-100); color: var(--teal-600); }
+  .c-blue   { background: var(--blue-50);   border-color: var(--blue-100);   color: var(--blue-800); }
+  .c-blue   .node-tag { background: var(--blue-100); color: var(--blue-600); }
+  .c-purple { background: var(--purple-50); border-color: var(--purple-100); color: var(--purple-800); }
+  .c-purple .node-tag { background: var(--purple-100); color: var(--purple-600); }
+  .c-amber  { background: var(--amber-50);  border-color: var(--amber-100);  color: var(--amber-800); }
+  .c-amber  .node-tag { background: var(--amber-100); color: var(--amber-600); }
+  .c-green  { background: var(--green-50);  border-color: var(--green-100);  color: var(--green-800); }
+  .c-green  .node-tag { background: var(--green-100); color: var(--green-600); }
+  .c-coral  { background: var(--coral-50);  border-color: var(--coral-100);  color: var(--coral-800); }
+  .c-coral  .node-tag { background: var(--coral-100); color: var(--coral-600); }
+  .c-gray   { background: var(--gray-50);   border-color: var(--gray-100);   color: var(--gray-800); }
+  .c-gray   .node-tag { background: var(--gray-100); color: var(--gray-600); }
+
+  /* ─── BEST MODEL HIGHLIGHT ─── */
+  .best-model {
+    border-width: 2px;
+    border-color: var(--green-600);
+    box-shadow: 0 0 0 3px rgba(59,109,17,0.08);
+  }
+
+  .best-badge {
+    position: absolute;
+    top: -10px;
+    right: 12px;
+    background: var(--green-600);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    max-width: 480px;
+    width: 100%;
+    position: relative;
+    animation: modalIn 0.2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+    transition: background 0.1s;
+  }
+
+  .modal-close:hover { background: var(--border-light); }
+
+  .modal-phase {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+  }
+
+  .modal h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+  }
+
+  .modal p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+
+  .modal-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin: 4px 4px 0 0;
+  }
+
+  .modal-stat-num {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .modal-stat-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .modal code {
+    font-family: 'DM Mono', monospace;
+    font-size: 12.5px;
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 5px;
+    padding: 2px 6px;
+    color: var(--text-primary);
+  }
+
+  /* ─── SVG CONNECTORS ─── */
+  svg.connectors {
+    overflow: visible;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* ─── LOOP NOTE ─── */
+  .loop-note {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* ─── LEGEND ─── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1.5px solid;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Project Sensro</div>
+  <h1>Road Quality Intelligence System</h1>
+  <p>Every rider becomes a data source. Crowdsourced sensor data trains ML models that power smarter ADAS routing.</p>
+</header>
+
+<div class="chart-wrap">
+
+  <!-- ── PHASE 1: DATA COLLECTION ── -->
+  <div class="phase">
+    <div class="phase-label">Phase 1 · Data collection</div>
+    <div class="phase-content">
+
+      <div class="node c-teal" onclick="openModal('rider')">
+        <div class="node-title">Rider on road</div>
+        <div class="node-sub">Motorcycle / vehicle trip<br>real-world road conditions</div>
+        <span class="node-tag">field data</span>
+      </div>
+
+      <div class="node c-blue" onclick="openModal('sensors')">
+        <div class="node-title">Phone sensors</div>
+        <div class="node-sub">Accelerometer · Gyroscope<br>GPS · Speed · Heading</div>
+        <span class="node-tag">16 raw signals</span>
+      </div>
+
+      <div class="node c-teal" onclick="openModal('collector')">
+        <div class="node-title">Mobile browser app</div>
+        <div class="node-sub">collector.html served<br>from local server</div>
+        <span class="node-tag">GET /collect</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- connector -->
+  <div class="connector"><div class="arrow-line" style="min-height:28px"></div><div class="arrow-down"></div></div>
+  <div style="text-align:center;font-size:11px;color:var(--text-tertiary);margin-bottom:6px;font-family:'DM Mono',monospace">POST /api/data</div>
+
+  <!-- ── PHASE 2: SERVER & STORAGE ── -->
+  <div class="phase">
+    <div class="phase-label">Phase 2 · Server &amp; storage</div>
+    <div class="phase-content">
+
+      <div class="node c-purple" onclick="openModal('fastapi')">
+        <div class="node-title">FastAPI server</div>
+        <div class="node-sub">Laptop-hosted · REST + WebSocket<br>trip management &amp; ingestion</div>
+        <span class="node-tag">uvicorn</span>
+      </div>
+
+      <div class="node c-gray" onclick="openModal('sqlite')">
+        <div class="node-title">SQLite database</div>
+        <div class="node-sub">road_data.db<br>trips + readings tables</div>
+        <span class="node-tag">aiosqlite</span>
+      </div>
+
+      <div class="node c-coral" onclick="openModal('websocket')">
+        <div class="node-title">Live alert broadcast</div>
+        <div class="node-sub">WebSocket /ws<br>bad / obstruction alerts</div>
+        <span class="node-tag">real-time</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="connector"><div class="arrow-line" style="min-height:28px"></div><div class="arrow-down"></div></div>
+
+  <!-- ── PHASE 3: ML PIPELINE ── -->
+  <div class="phase">
+    <div class="phase-label">Phase 3 · ML pipeline</div>
+    <div class="phase-content">
+
+      <div class="node c-amber" onclick="openModal('features')">
+        <div class="node-title">Feature engineering</div>
+        <div class="node-sub">22 features: speed buckets,<br>heading sin/cos, accel ratios</div>
+        <span class="node-tag">train.py</span>
+      </div>
+
+    </div>
+
+    <div style="height:20px"></div>
+
+    <!-- 4 model comparison -->
+    <div class="phase-content" style="gap:12px">
+
+      <div class="node c-gray" onclick="openModal('lr')">
+        <div class="node-title">Logistic Regression</div>
+        <div class="node-sub">Baseline linear model</div>
+        <span class="node-tag">67.7% acc.</span>
+      </div>
+
+      <div class="node c-gray" onclick="openModal('rf')">
+        <div class="node-title">Random Forest</div>
+        <div class="node-sub">Ensemble, strong performance</div>
+        <span class="node-tag">94.6% acc.</span>
+      </div>
+
+      <div class="node c-gray" onclick="openModal('knn')">
+        <div class="node-title">KNN &amp; SVM</div>
+        <div class="node-sub">Distance-based models</div>
+        <span class="node-tag">mid-range</span>
+      </div>
+
+      <div class="node c-green best-model" onclick="openModal('xgboost')">
+        <div class="best-badge">✓ Best model</div>
+        <div class="node-title">XGBoost</div>
+        <div class="node-sub">Gradient-boosted trees<br>highest accuracy + AUC</div>
+        <span class="node-tag">97.4% acc.</span>
+      </div>
+
+    </div>
+
+    <div style="height:20px"></div>
+
+    <div class="phase-content">
+      <div class="node c-green" onclick="openModal('autoselect')">
+        <div class="node-title">Auto model selection</div>
+        <div class="node-sub">Compare weighted F1 scores<br>write best_model.txt</div>
+        <span class="node-tag">model_results.json</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="arrow-line" style="min-height:28px"></div><div class="arrow-down"></div></div>
+
+  <!-- ── PHASE 4: APPLICATION ── -->
+  <div class="phase">
+    <div class="phase-label">Phase 4 · Application</div>
+    <div class="phase-content">
+
+      <div class="node c-blue" onclick="openModal('predict')">
+        <div class="node-title">Prediction service</div>
+        <div class="node-sub">predict_route.py<br>classifies each GPS segment</div>
+        <span class="node-tag">good / avg / bad</span>
+      </div>
+
+      <div class="node c-blue" onclick="openModal('map')">
+        <div class="node-title">Live road map</div>
+        <div class="node-sub">Leaflet.js · colour-coded<br>segments on map</div>
+        <span class="node-tag">index.html</span>
+      </div>
+
+      <div class="node c-teal" onclick="openModal('contributor')">
+        <div class="node-title">Contributor mode</div>
+        <div class="node-sub">Auto-upload every ride<br>grows the crowd database</div>
+        <span class="node-tag">crowd-source</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="loop-note">↺ Each contributor ride feeds back into the database — the dataset grows automatically</div>
+
+  <div class="connector"><div class="arrow-line" style="min-height:28px"></div><div class="arrow-down"></div></div>
+
+  <!-- ── PHASE 5: ADAS ── -->
+  <div class="phase">
+    <div class="phase-label">Phase 5 · Automotive / ADAS</div>
+    <div class="phase-content">
+
+      <div class="node c-coral" onclick="openModal('api')">
+        <div class="node-title">Road quality API</div>
+        <div class="node-sub">GET /segments returns scored<br>GPS points along any route</div>
+        <span class="node-tag">GET /segments</span>
+      </div>
+
+      <div class="node c-coral" onclick="openModal('adas')">
+        <div class="node-title">ADAS route optimisation</div>
+        <div class="node-sub">Skip short bad-road paths<br>pick smooth optimal route</div>
+        <span class="node-tag">automotive</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── LEGEND ─── -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--teal-50);border-color:var(--teal-100)"></div> Data collection</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple-50);border-color:var(--purple-100)"></div> Server</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber-50);border-color:var(--amber-100)"></div> ML pipeline</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue-50);border-color:var(--blue-100)"></div> Application</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--coral-50);border-color:var(--coral-100)"></div> Automotive / ADAS</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green-50);border-color:var(--green-600)"></div> Best / selected model</div>
+  </div>
+
+</div><!-- end chart-wrap -->
+
+
+<!-- ──────────── MODAL ──────────── -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-phase" id="modal-phase"></div>
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+
+<script>
+const data = {
+  rider: {
+    phase: 'Phase 1 · Data collection',
+    title: 'Rider on road',
+    body: `<p>The system was tested with real-world rides on different road surfaces — smooth roads, potholes, speed bumps, rough patches and obstructions. This manual data collection phase was critical because ML models need labelled ground-truth examples to learn from.</p>
+           <p>Each ride is a <strong>trip</strong> — started with a POST to <code>/api/trips</code> and ended with a PATCH to <code>/api/trips/{id}/end</code>. During the ride every sensor reading is tagged with one of four road condition labels.</p>
+           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+             <div class="modal-stat"><span class="modal-stat-num">4</span><span class="modal-stat-label">condition classes</span></div>
+             <div class="modal-stat"><span class="modal-stat-num" style="font-size:14px">good · avg · bad · obstruction</span></div>
+           </div>`
+  },
+  sensors: {
+    phase: 'Phase 1 · Data collection',
+    title: 'Phone sensors',
+    body: `<p>The mobile browser uses the <code>DeviceMotion</code> and <code>DeviceOrientation</code> Web APIs — no app install needed. The following signals are captured at each data point:</p>
+           <p><code>accel_x/y/z</code> · <code>accel_magnitude</code> · <code>gyro_x/y/z</code> · <code>gyro_magnitude</code> · <code>speed</code> · <code>lat/lng</code> · <code>altitude</code> · <code>heading</code> · <code>accuracy</code></p>
+           <p>These 16 raw signals are later engineered into 22 ML features including <code>speed_bucket</code>, <code>heading_sin/cos</code>, <code>rough_proxy</code>, and interaction ratios between axes.</p>
+           <div style="margin-top:12px"><div class="modal-stat"><span class="modal-stat-num">16</span><span class="modal-stat-label">raw sensor channels</span></div><div class="modal-stat" style="margin-left:8px"><span class="modal-stat-num">22</span><span class="modal-stat-label">engineered features</span></div></div>`
+  },
+  collector: {
+    phase: 'Phase 1 · Data collection',
+    title: 'Mobile browser app',
+    body: `<p><code>collector.html</code> is a lightweight Progressive Web App served from the FastAPI server at <code>GET /collect</code>. The rider opens it on their phone browser — no app store, no install.</p>
+           <p>It reads sensor APIs, lets the rider start/end a trip, and streams each reading to <code>POST /api/data</code> with all sensor fields plus the road condition label the rider marks in real time.</p>
+           <p>This is also the entry point for the <strong>contributor mode</strong> — any user can become a data source by visiting the URL on the local network.</p>`
+  },
+  fastapi: {
+    phase: 'Phase 2 · Server & storage',
+    title: 'FastAPI server',
+    body: `<p>The backend is built with <strong>FastAPI</strong> and runs locally via Uvicorn. It exposes a REST API and a WebSocket endpoint:</p>
+           <p><code>POST /api/trips</code> — create a new trip<br>
+              <code>PATCH /api/trips/{id}/end</code> — close a trip<br>
+              <code>POST /api/data</code> — submit a sensor reading<br>
+              <code>GET /api/segments</code> — fetch all road readings<br>
+              <code>GET /api/trips/{id}/stats</code> — per-trip summary<br>
+              <code>WS /ws</code> — real-time alert broadcast</p>
+           <p>The lifespan handler initialises the SQLite schema on startup using <code>asyncio</code> and <code>aiosqlite</code> for non-blocking database access.</p>`
+  },
+  sqlite: {
+    phase: 'Phase 2 · Server & storage',
+    title: 'SQLite database',
+    body: `<p><code>road_data.db</code> holds two tables: <code>trips</code> (id, name, started_at, ended_at) and <code>readings</code> (all 16 sensor columns + condition label + GPS coordinates + trip_id foreign key).</p>
+           <p>The database grows automatically as contributors add rides. The <code>GET /api/segments</code> endpoint exposes it for map visualisation and for the ADAS integration layer.</p>
+           <div style="margin-top:12px"><div class="modal-stat"><span class="modal-stat-num">2</span><span class="modal-stat-label">tables</span></div><div class="modal-stat" style="margin-left:8px"><span class="modal-stat-num" style="font-size:14px">trips + readings</span></div></div>`
+  },
+  websocket: {
+    phase: 'Phase 2 · Server & storage',
+    title: 'Live alert broadcast',
+    body: `<p>When a submitted reading has condition <code>bad</code> or <code>obstruction</code>, the API immediately broadcasts a JSON alert to all connected WebSocket clients at <code>/ws</code>:</p>
+           <p><code>{ type: "road_alert", condition: "bad", lat: ..., lng: ..., trip_id: ... }</code></p>
+           <p>The map frontend listens on this socket and can flash a warning in real time — useful for drivers or fleet management systems that need instant hazard notifications without polling.</p>`
+  },
+  features: {
+    phase: 'Phase 3 · ML pipeline',
+    title: 'Feature engineering',
+    body: `<p>Raw sensor readings are transformed into 22 ML features in <code>train.py</code>. Key engineered signals include:</p>
+           <p><code>speed_kmh</code> — converted from m/s<br>
+              <code>speed_bucket</code> — categorical binning (slow/mid/fast)<br>
+              <code>rough_proxy</code> — accel_z variance proxy for bumpiness<br>
+              <code>heading_sin / heading_cos</code> — cyclical encoding of direction<br>
+              <code>accel_xy / accel_xz / accel_yz</code> — cross-axis interaction ratios<br>
+              <code>gyro_total_turn</code> — cumulative rotation magnitude</p>
+           <p>All features are scaled with <code>StandardScaler</code> (saved as <code>scaler.pkl</code>) before training models that require it.</p>`
+  },
+  lr: {
+    phase: 'Phase 3 · Model comparison',
+    title: 'Logistic Regression',
+    body: `<p>The simplest model in the comparison — a linear classifier that establishes a performance baseline. It achieved <strong>67.7% accuracy</strong> with a weighted F1 of 0.677.</p>
+           <p>The relatively low score reflects that road quality classification is a non-linear problem — the boundary between "good" and "bad" road conditions depends on interactions between multiple sensor signals that a linear model cannot capture well.</p>
+           <div style="margin-top:12px"><div class="modal-stat"><span class="modal-stat-num">67.7%</span><span class="modal-stat-label">accuracy</span></div><div class="modal-stat" style="margin-left:8px"><span class="modal-stat-num">0.855</span><span class="modal-stat-label">ROC-AUC</span></div></div>`
+  },
+  rf: {
+    phase: 'Phase 3 · Model comparison',
+    title: 'Random Forest',
+    body: `<p>An ensemble of decision trees — a strong performer at <strong>94.6% accuracy</strong> with ROC-AUC of 0.996. The feature importance analysis from Random Forest was especially useful: <code>altitude</code>, <code>heading_sin/cos</code>, and <code>speed</code> were the top predictors.</p>
+           <p>Fast to train (0.52s) and no scaling required, making it a good production fallback if XGBoost is unavailable in an embedded system.</p>
+           <div style="margin-top:12px"><div class="modal-stat"><span class="modal-stat-num">94.6%</span><span class="modal-stat-label">accuracy</span></div><div class="modal-stat" style="margin-left:8px"><span class="modal-stat-num">0.996</span><span class="modal-stat-label">ROC-AUC</span></div></div>`
+  },
+  knn: {
+    phase: 'Phase 3 · Model comparison',
+    title: 'KNN & SVM',
+    body: `<p><strong>KNN</strong> (K-Nearest Neighbours) classifies a reading by finding the most similar training examples in feature space. <strong>SVM with RBF kernel</strong> finds a non-linear decision boundary in high-dimensional space.</p>
+           <p>Both are distance-based and require feature scaling — a <code>scaler.pkl</code> is applied before inference. They scored in the mid-range between Logistic Regression and the tree-based models, confirming that ensemble methods are better suited to this dataset.</p>`
+  },
+  xgboost: {
+    phase: 'Phase 3 · Model comparison',
+    title: 'XGBoost — selected best model',
+    body: `<p>XGBoost (eXtreme Gradient Boosting) is the winning model, achieving <strong>97.4% accuracy</strong> and a near-perfect ROC-AUC of <strong>0.999</strong>. It builds trees sequentially, each correcting errors from the previous — ideal for tabular sensor data.</p>
+           <p>Inference is blazing fast at <strong>0.004 ms per prediction</strong> — easily fast enough for real-time ADAS use on embedded hardware. The trained model is saved as <code>XGBoost.pkl</code> and auto-selected by the pipeline.</p>
+           <div style="margin-top:12px">
+             <div class="modal-stat"><span class="modal-stat-num">97.4%</span><span class="modal-stat-label">accuracy</span></div>
+             <div class="modal-stat" style="margin-left:8px"><span class="modal-stat-num">0.999</span><span class="modal-stat-label">ROC-AUC</span></div>
+             <div class="modal-stat" style="margin-left:8px"><span class="modal-stat-num">0.004ms</span><span class="modal-stat-label">inference</span></div>
+           </div>`
+  },
+  autoselect: {
+    phase: 'Phase 3 · ML pipeline',
+    title: 'Auto model selection',
+    body: `<p>After training all models, the pipeline reads <code>model_results.json</code> and compares <strong>weighted F1 scores</strong> across all candidates. The best-performing model name is written to <code>best_model.txt</code>.</p>
+           <p>The prediction service then loads whichever model is named in that file — so if a better model is trained in the future, just re-run training and the entire system automatically upgrades with no code changes.</p>`
+  },
+  predict: {
+    phase: 'Phase 4 · Application',
+    title: 'Prediction service',
+    body: `<p><code>predict_route.py</code> loads the best model (<code>XGBoost.pkl</code>), the scaler, and feature columns from <code>feature_cols.json</code>. Given raw sensor input, it applies the same feature engineering pipeline and returns one of four condition labels: <code>good</code>, <code>avg</code>, <code>bad</code>, or <code>obstruction</code>.</p>
+           <p>This runs on the server so predictions are available to any client — the map, an ADAS API consumer, or a fleet management dashboard — without each client needing to load the model.</p>`
+  },
+  map: {
+    phase: 'Phase 4 · Application',
+    title: 'Live road map',
+    body: `<p><code>index.html</code> renders a Leaflet.js map that calls <code>GET /api/segments</code> and draws each GPS reading as a colour-coded polyline segment:</p>
+           <p>🟢 <code>good</code> — green &nbsp; 🟡 <code>avg</code> — amber &nbsp; 🔴 <code>bad</code> — red &nbsp; ⚫ <code>obstruction</code> — dark</p>
+           <p>The WebSocket connection is also open so new <code>road_alert</code> messages flash on the map in real time as contributors ride. The teacher can see the full road quality heatmap built from your own rides.</p>`
+  },
+  contributor: {
+    phase: 'Phase 4 · Application',
+    title: 'Contributor mode',
+    body: `<p>This is the crowdsourcing flywheel. Any user who opens <code>/collect</code> on the local network automatically becomes a data contributor — their ride is uploaded to the same database, enriching it for everyone.</p>
+           <p>The more contributors ride, the denser the road quality map becomes. This is the exact same model used by Waze, Google Maps, and commercial road-condition platforms — except here it's built from scratch on your own hardware.</p>
+           <p>For ADAS applications this means the map self-improves over time with zero manual effort.</p>`
+  },
+  api: {
+    phase: 'Phase 5 · Automotive / ADAS',
+    title: 'Road quality API',
+    body: `<p><code>GET /api/segments</code> returns all road readings with GPS coordinates and condition labels. An ADAS system can query this endpoint for any geographic bounding box and get back a scored map of road quality.</p>
+           <p>Each segment includes: <code>lat/lng</code>, <code>condition</code>, <code>speed</code>, <code>accel_magnitude</code>, <code>trip_id</code>, and timestamp — enough for a navigation algorithm to build a quality-weighted road graph.</p>`
+  },
+  adas: {
+    phase: 'Phase 5 · Automotive / ADAS',
+    title: 'ADAS route optimisation',
+    body: `<p>The key automotive insight: shortest path ≠ optimal path. A 100m shortcut with potholes and obstructions can damage a vehicle, reduce speed, and increase journey time vs a 300m smooth alternative.</p>
+           <p>With Sensro's road quality scores, an ADAS navigation module can weight route edges by road condition — penalising <code>bad</code> and <code>obstruction</code> segments. The result: smoother routes, lower maintenance costs, better passenger comfort, and safer autonomous driving.</p>
+           <p>This is directly applicable to: <strong>autonomous vehicles</strong>, <strong>fleet telematics</strong>, <strong>adaptive suspension systems</strong>, and <strong>municipal road maintenance planning</strong>.</p>`
+  }
+};
+
+function openModal(key) {
+  const d = data[key];
+  document.getElementById('modal-phase').textContent = d.phase;
+  document.getElementById('modal-title').textContent = d.title;
+  document.getElementById('modal-body').innerHTML = d.body;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>

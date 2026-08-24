@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Road Collector</title>
+<link rel="manifest" href="/static/manifest.json">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #111; color: #eee; min-height: 100vh; padding: 12px; }
+  h2 { font-size: 1rem; margin-bottom: 10px; color: #aaa; }
+  #status { font-size: 0.75rem; color: #666; margin-bottom: 8px; white-space: pre-line; line-height: 1.6; }
+  #status span { color: #0f0; }
+  #autoStatus { font-size: 0.7rem; color: #55f; margin-top: 4px; }
+  .section { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+  input[type=text] { width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #eee; border-radius: 4px; font-family: monospace; }
+  button { width: 100%; padding: 12px; border: none; border-radius: 4px; font-size: 1rem; font-family: monospace; cursor: pointer; margin-top: 6px; }
+  #startBtn { background: #1a6; color: #fff; }
+  #stopBtn  { background: #a22; color: #fff; display: none; }
+
+  .mode-toggle { display: flex; gap: 6px; margin-top: 6px; }
+  .mode-btn { flex: 1; padding: 8px; font-size: 0.8rem; border: 1px solid #444;
+              background: #222; color: #888; border-radius: 4px; cursor: pointer; }
+  .mode-btn.active { background: #333; color: #fff; border-color: #888; }
+
+  .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+  .cond-btn { padding: 20px 8px; border: 2px solid; border-radius: 6px; font-size: 1rem; font-family: monospace; cursor: pointer; background: #1a1a1a; transition: background 0.15s, color 0.15s; }
+  .cond-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .cond-btn[data-c=good]        { border-color: #1a6; color: #1a6; }
+  .cond-btn[data-c=avg]         { border-color: #ca0; color: #ca0; }
+  .cond-btn[data-c=bad]         { border-color: #c33; color: #c33; }
+  .cond-btn[data-c=obstruction] { border-color: #f80; color: #f80; }
+  .cond-btn.selected { background: currentColor; color: #1a1a1a; font-weight: bold; }
+  .cond-btn.flash { opacity: 0.4; }
+
+  #autoBanner {
+    display: none; border-radius: 6px; padding: 12px;
+    text-align: center; margin-bottom: 10px;
+    border: 2px solid #555; background: #1a1a1a;
+  }
+  #autoBanner.show { display: block; }
+  #autoBanner .pred-label { font-size: 1.4rem; font-weight: bold; }
+  #autoBanner .pred-conf  { font-size: 0.75rem; color: #888; margin-top: 2px; }
+  #autoBanner .pred-prob  { font-size: 0.7rem; color: #666; margin-top: 4px; }
+  #confirmBtn { background: #2a5; color: #fff; margin-top: 8px; }
+  #skipBtn    { background: #333; color: #999; margin-top: 4px; font-size: 0.85rem; padding: 8px; }
+
+  /* ── PROXIMITY ALERT BANNER ─────────────────────────────────────────── */
+  #proximityAlert {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    padding: 14px 16px 12px;
+    background: #1a0000;
+    border-bottom: 3px solid #ff2222;
+    animation: alertPulse 1s ease-in-out infinite alternate;
+    text-align: center;
+  }
+  #proximityAlert.show { display: block; }
+  @keyframes alertPulse {
+    from { background: #1a0000; border-color: #ff2222; }
+    to   { background: #300000; border-color: #ff6666; }
+  }
+  #proximityAlert .alert-icon  { font-size: 1.8rem; line-height: 1; }
+  #proximityAlert .alert-title {
+    font-size: 1rem; font-weight: bold; color: #ff4444;
+    letter-spacing: 1px; margin: 4px 0 2px;
+  }
+  #proximityAlert .alert-body  { font-size: 0.78rem; color: #cc8888; }
+  #proximityAlert .alert-dist  { font-size: 0.72rem; color: #ff8888; margin-top: 3px; font-weight: bold; }
+  #proximityAlert .alert-close {
+    display: inline-block; margin-top: 8px;
+    font-size: 0.7rem; color: #885555; cursor: pointer;
+    border: 1px solid #552222; border-radius: 3px; padding: 3px 10px;
+    background: none; width: auto;
+  }
+  #proximityAlert .alert-close:hover { color: #cc8888; }
+
+  #sensorBox { font-size: 0.7rem; color: #666; line-height: 1.8; }
+  #sensorBox b { color: #999; }
+  #log { font-size: 0.65rem; color: #555; max-height: 80px; overflow-y: auto; }
+  #log div { border-bottom: 1px solid #222; padding: 2px 0; }
+
+  /* WS indicator dot */
+  #wsIndicator {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: #444; margin-left: 6px;
+    vertical-align: middle;
+  }
+  #wsIndicator.connected { background: #1a6; }
+  #wsIndicator.error     { background: #c33; }
+</style>
+</head>
+<body>
+
+<!-- PROXIMITY ALERT (fixed, full-width, top of screen) -->
+<div id="proximityAlert">
+  <div class="alert-icon">⚠️</div>
+  <div class="alert-title">BAD ROAD AHEAD</div>
+  <div class="alert-body" id="alertBody">Poor road condition reported nearby</div>
+  <div class="alert-dist" id="alertDist"></div>
+  <button class="alert-close" onclick="dismissAlert()">DISMISS</button>
+</div>
+
+<div class="section">
+  <h2>ROAD MAPPER — COLLECTOR <span id="wsIndicator" title="WebSocket status"></span></h2>
+  <input type="text" id="tripName" placeholder="Trip name (optional)">
+  <button id="startBtn" onclick="startTrip()">▶ START TRIP</button>
+  <button id="stopBtn"  onclick="stopTrip()">■ STOP TRIP</button>
+</div>
+
+<div id="status">Status: idle</div>
+
+<!-- AUTO PREDICTION BANNER -->
+<div id="autoBanner">
+  <div class="pred-label" id="predLabel">—</div>
+  <div class="pred-conf"  id="predConf"></div>
+  <div class="pred-prob"  id="predProb"></div>
+  <button id="confirmBtn" onclick="confirmPrediction()">✓ CONFIRM &amp; SAVE</button>
+  <button id="skipBtn"    onclick="skipPrediction()">Skip</button>
+</div>
+
+<div class="section">
+  <h2>MODE</h2>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeManual" onclick="setMode('manual')">✋ MANUAL</button>
+    <button class="mode-btn"        id="modeAuto"   onclick="setMode('auto')">🤖 AUTO</button>
+  </div>
+  <div id="autoStatus"></div>
+</div>
+
+<div class="section" id="manualSection">
+  <h2>TAG CONDITION</h2>
+  <div class="cond-grid">
+    <button class="cond-btn" data-c="good"        disabled onclick="tag('good')">✓ GOOD</button>
+    <button class="cond-btn" data-c="avg"         disabled onclick="tag('avg')">~ AVG</button>
+    <button class="cond-btn" data-c="bad"         disabled onclick="tag('bad')">✗ BAD</button>
+    <button class="cond-btn" data-c="obstruction" disabled onclick="tag('obstruction')">⚠ OBST.</button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>LIVE SENSORS</h2>
+  <div id="sensorBox">
+    <b>GPS:</b> waiting...<br>
+    <b>Speed:</b> —<br>
+    <b>Accuracy:</b> —<br>
+    <b>Altitude:</b> —<br>
+    <b>Heading:</b> —<br>
+    <b>Accel:</b> —<br>
+    <b>Gyro:</b> —<br>
+  </div>
+</div>
+
+<div class="section">
+  <h2>LOG</h2>
+  <div id="log"></div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const COLLECTION_DELAY_MS  = 300;
+const AUTO_INTERVAL_MS     = 3000;
+const ALERT_RADIUS_M       = 200;       // proximity threshold
+const ALERT_DISMISS_MS     = 15000;     // auto-dismiss after 15s
+const COND_COLORS = { good:'#1a6', avg:'#ca0', bad:'#c33', obstruction:'#f80' };
+
+// ── State ──────────────────────────────────────────────────────────────────
+let tripId            = null;
+let selectedCondition = null;
+let gpsData           = null;
+let accelData         = { x: null, y: null, z: null };
+let gyroData          = { x: null, y: null, z: null };
+let watchId           = null;
+let collectionTimer   = null;
+let autoTimer         = null;
+let lastPred          = null;
+let sentCount         = 0;
+let mode              = 'manual';
+let ws                = null;
+let alertDismissTimer = null;
+
+// ── Haversine distance (metres) ────────────────────────────────────────────
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R  = 6371000;
+  const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+  const a  = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    setWsIndicator('connected');
+    logMsg('🟢 Alert network connected');
+  };
+
+  ws.onclose = () => {
+    setWsIndicator('error');
+    logMsg('🔴 Alert network disconnected — retrying in 5s');
+    setTimeout(connectWS, 5000);   // auto-reconnect
+  };
+
+  ws.onerror = () => setWsIndicator('error');
+
+  ws.onmessage = (evt) => {
+    let msg;
+    try { msg = JSON.parse(evt.data); } catch { return; }
+    if (msg.type === 'road_alert') handleRoadAlert(msg);
+  };
+}
+
+function setWsIndicator(state) {
+  const el = document.getElementById('wsIndicator');
+  el.className = state;              // 'connected' | 'error' | ''
+  el.title = { connected: 'Alert network: connected', error: 'Alert network: disconnected', '': 'Alert network: connecting' }[state] || '';
+}
+
+// ── Proximity alert handler ────────────────────────────────────────────────
+function handleRoadAlert(msg) {
+  // If we don't have GPS yet, show the alert unconditionally (can't filter)
+  let dist = null;
+  if (gpsData) {
+    dist = haversineM(gpsData.lat, gpsData.lng, msg.lat, msg.lng);
+    if (dist > ALERT_RADIUS_M) return;   // out of range — ignore silently
+  }
+
+  const condLabel = msg.condition === 'obstruction' ? 'OBSTRUCTION' : 'BAD ROAD';
+  document.getElementById('alertBody').textContent =
+    `${condLabel} reported ${dist !== null ? Math.round(dist)+'m away' : 'nearby'}`;
+  document.getElementById('alertDist').textContent =
+    dist !== null
+      ? `Within ${ALERT_RADIUS_M}m of your location`
+      : `Your GPS is unavailable — alert shown regardless`;
+
+  showAlert();
+  logMsg(`⚠ ALERT: ${condLabel} within range${dist !== null ? ' ('+Math.round(dist)+'m)' : ''}`);
+
+  // Vibrate if supported (mobile)
+  if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+
+  // Auto-dismiss after 15s
+  clearTimeout(alertDismissTimer);
+  alertDismissTimer = setTimeout(dismissAlert, ALERT_DISMISS_MS);
+}
+
+function showAlert() {
+  document.getElementById('proximityAlert').classList.add('show');
+}
+
+function dismissAlert() {
+  document.getElementById('proximityAlert').classList.remove('show');
+  clearTimeout(alertDismissTimer);
+}
+
+// ── Sensor helpers ─────────────────────────────────────────────────────────
+function mag(x, y, z) {
+  return (x != null) ? Math.sqrt(x*x + y*y + z*z).toFixed(3) : null;
+}
+
+function updateSensorBox() {
+  const g = gpsData;
+  document.getElementById('sensorBox').innerHTML = `
+    <b>GPS:</b> ${g ? g.lat.toFixed(6)+', '+g.lng.toFixed(6) : 'waiting...'}<br>
+    <b>Speed:</b> ${g?.speed != null ? (g.speed*3.6).toFixed(1)+' km/h' : '—'}<br>
+    <b>Accuracy:</b> ${g?.accuracy != null ? g.accuracy.toFixed(1)+' m' : '—'}<br>
+    <b>Altitude:</b> ${g?.altitude != null ? g.altitude.toFixed(1)+' m' : '—'}<br>
+    <b>Heading:</b> ${g?.heading != null ? g.heading.toFixed(1)+'°' : '—'}<br>
+    <b>Accel (x/y/z):</b> ${accelData.x != null
+      ? accelData.x.toFixed(2)+' / '+accelData.y.toFixed(2)+' / '+accelData.z.toFixed(2)
+        +' [mag:'+mag(accelData.x,accelData.y,accelData.z)+']' : '—'}<br>
+    <b>Gyro (x/y/z):</b> ${gyroData.x != null
+      ? gyroData.x.toFixed(2)+' / '+gyroData.y.toFixed(2)+' / '+gyroData.z.toFixed(2)
+        +' [mag:'+mag(gyroData.x,gyroData.y,gyroData.z)+']' : '—'}<br>
+  `;
+}
+setInterval(updateSensorBox, 500);
+
+// ── GPS ────────────────────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) { logMsg('GPS not available'); return; }
+  watchId = navigator.geolocation.watchPosition(pos => {
+    gpsData = {
+      lat: pos.coords.latitude, lng: pos.coords.longitude,
+      speed: pos.coords.speed,  accuracy: pos.coords.accuracy,
+      altitude: pos.coords.altitude, heading: pos.coords.heading
+    };
+  }, err => logMsg('GPS err: '+err.message),
+  { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+}
+
+function stopGPS() {
+  if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+}
+
+// ── Motion sensors ─────────────────────────────────────────────────────────
+if (window.DeviceMotionEvent) {
+  window.addEventListener('devicemotion', e => {
+    const a = e.accelerationIncludingGravity || e.acceleration;
+    if (a) accelData = { x: a.x, y: a.y, z: a.z };
+    if (e.rotationRate) gyroData = { x: e.rotationRate.alpha, y: e.rotationRate.beta, z: e.rotationRate.gamma };
+  });
+}
+
+async function requestSensors() {
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    try { await DeviceMotionEvent.requestPermission(); } catch(e) {}
+  }
+}
+
+// ── Trip control ───────────────────────────────────────────────────────────
+async function startTrip() {
+  await requestSensors();
+  const name = document.getElementById('tripName').value || 'Trip '+new Date().toLocaleTimeString();
+  const res  = await fetch('/api/trips', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
+  });
+  const data = await res.json();
+  tripId = data.trip_id;
+  startGPS();
+  document.querySelectorAll('.cond-btn').forEach(b => b.disabled = false);
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('stopBtn').style.display  = 'block';
+  updateStatusRecording();
+  logMsg('Trip started: '+name);
+
+  if (mode === 'manual') startManualCollection();
+  else                   startAutoMode();
+}
+
+async function stopTrip() {
+  if (!tripId) return;
+  stopManualCollection();
+  stopAutoMode();
+  await fetch(`/api/trips/${tripId}/end`, { method: 'PATCH' });
+  stopGPS();
+  document.querySelectorAll('.cond-btn').forEach(b => b.disabled = true);
+  document.getElementById('startBtn').style.display = 'block';
+  document.getElementById('stopBtn').style.display  = 'none';
+  document.getElementById('status').textContent = 'Status: idle (trip #'+tripId+' saved)';
+  hideBanner();
+  tripId = null;
+  logMsg('Trip stopped');
+}
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('modeManual').classList.toggle('active', m === 'manual');
+  document.getElementById('modeAuto').classList.toggle('active',   m === 'auto');
+  document.getElementById('manualSection').style.display = m === 'manual' ? '' : 'none';
+  document.getElementById('autoStatus').textContent = m === 'auto'
+    ? 'AUTO: predicts every 3s — you confirm before saving' : '';
+
+  if (tripId) {
+    if (m === 'auto') {
+      stopManualCollection();
+      startAutoMode();
+    } else {
+      stopAutoMode();
+      hideBanner();
+      startManualCollection();
+    }
+  }
+}
+
+// ── MANUAL mode ────────────────────────────────────────────────────────────
+function loadSavedCondition() {
+  const stored = localStorage.getItem('road-collector-condition');
+  if (stored && ['good','avg','bad','obstruction'].includes(stored)) {
+    selectedCondition = stored;
+    renderConditionSelection();
+  }
+}
+
+function renderConditionSelection() {
+  document.querySelectorAll('.cond-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.c === selectedCondition);
+  });
+}
+
+function startManualCollection() {
+  if (collectionTimer) return;
+  collectionTimer = setInterval(sendCurrentReading, COLLECTION_DELAY_MS);
+  sendCurrentReading();
+}
+
+function stopManualCollection() {
+  if (collectionTimer) { clearInterval(collectionTimer); collectionTimer = null; }
+}
+
+async function tag(condition) {
+  if (!tripId) return;
+  const btn = document.querySelector(`.cond-btn[data-c="${condition}"]`);
+  selectedCondition = (selectedCondition === condition) ? null : condition;
+  renderConditionSelection();
+  localStorage.setItem('road-collector-condition', selectedCondition || '');
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 200);
+  await sendCurrentReading(true);
+}
+
+async function sendCurrentReading(force = false) {
+  if (!tripId || !selectedCondition || !gpsData) {
+    if (force && !selectedCondition) logMsg('No condition selected');
+    return;
+  }
+  const payload = { ...buildPayload(), condition: selectedCondition };
+  try {
+    const res = await fetch('/api/data', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) { logMsg('Send failed: '+(await res.text())); return; }
+    sentCount++;
+    updateStatusRecording();
+  } catch(e) {
+    logMsg('Send failed: '+e.message);
+  }
+}
+
+function updateStatusRecording() {
+  if (!tripId) return;
+  const modeStr = mode === 'auto' ? 'AUTO' : (selectedCondition ? 'mode: '+selectedCondition : 'no condition');
+  document.getElementById('status').innerHTML =
+    `Status: <span>RECORDING — Trip #${tripId}</span> — ${sentCount} readings sent — ${modeStr}`;
+}
+
+// ── AUTO mode ──────────────────────────────────────────────────────────────
+function startAutoMode() {
+  stopAutoMode();
+  autoTimer = setInterval(runAutoPrediction, AUTO_INTERVAL_MS);
+  document.getElementById('autoStatus').textContent = '🟢 AUTO: active — predicting every 3s';
+}
+
+function stopAutoMode() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  if (mode === 'auto')
+    document.getElementById('autoStatus').textContent = '⚪ AUTO: paused (trip stopped)';
+}
+
+async function runAutoPrediction() {
+  if (!gpsData || !tripId) return;
+  try {
+    const res  = await fetch('/api/predict', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(buildPayload())
+    });
+    const data = await res.json();
+    if (data.error) {
+      document.getElementById('autoStatus').textContent = '⚠ Model not trained yet. Run ml/train.py first.';
+      return;
+    }
+    lastPred = { ...buildPayload(), condition: data.condition };
+    showBanner(data);
+    updateStatusRecording();
+  } catch(e) {
+    logMsg('Predict error: '+e.message);
+  }
+}
+
+function showBanner(data) {
+  const banner = document.getElementById('autoBanner');
+  const color  = COND_COLORS[data.condition] || '#fff';
+  banner.style.borderColor = color;
+  banner.classList.add('show');
+  document.getElementById('predLabel').textContent = data.condition.toUpperCase();
+  document.getElementById('predLabel').style.color = color;
+  document.getElementById('predConf').textContent  =
+    `Confidence: ${(data.confidence*100).toFixed(1)}%  |  Model: ${data.model}`;
+  if (data.probabilities && Object.keys(data.probabilities).length) {
+    document.getElementById('predProb').textContent =
+      Object.entries(data.probabilities).map(([k,v]) => `${k}: ${(v*100).toFixed(0)}%`).join('  ');
+  }
+}
+
+function hideBanner() {
+  document.getElementById('autoBanner').classList.remove('show');
+  lastPred = null;
+}
+
+async function confirmPrediction() {
+  if (!lastPred || !tripId) return;
+  await saveReading(lastPred);
+  logMsg(`[AUTO✓] ${lastPred.condition.toUpperCase()} confirmed`);
+  sentCount++;
+  updateStatusRecording();
+  hideBanner();
+}
+
+function skipPrediction() { logMsg('[AUTO] skipped'); hideBanner(); }
+
+// ── Shared helpers ─────────────────────────────────────────────────────────
+function buildPayload() {
+  const m  = parseFloat(mag(accelData.x, accelData.y, accelData.z));
+  const gm = parseFloat(mag(gyroData.x,  gyroData.y,  gyroData.z));
+  return {
+    trip_id:          tripId,
+    lat:              gpsData.lat,
+    lng:              gpsData.lng,
+    speed:            gpsData.speed,
+    accuracy:         gpsData.accuracy,
+    altitude:         gpsData.altitude,
+    heading:          gpsData.heading,
+    accel_x:          accelData.x,
+    accel_y:          accelData.y,
+    accel_z:          accelData.z,
+    accel_magnitude:  isNaN(m)  ? null : m,
+    gyro_x:           gyroData.x,
+    gyro_y:           gyroData.y,
+    gyro_z:           gyroData.z,
+    gyro_magnitude:   isNaN(gm) ? null : gm,
+  };
+}
+
+async function saveReading(payload) {
+  try {
+    await fetch('/api/data', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  } catch(e) {
+    logMsg('Save failed: '+e.message);
+  }
+}
+
+function logMsg(msg) {
+  const log = document.getElementById('log');
+  const d   = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString()+' — '+msg;
+  log.prepend(d);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadSavedCondition();
+setMode('manual');
+connectWS();   // connect immediately — alerts work even outside a trip
+</script>
+</body>
+</html>
