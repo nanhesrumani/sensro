@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1,
+    "trip_id": 1,
+    "timestamp": "2026-08-24 10:12:00",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "condition": "good",
+    "speed": 5.5
+  },
+  {
+    "id": 2,
+    "trip_id": 1,
+    "timestamp": "2026-08-24 10:13:10",
+    "lat": 37.7755,
+    "lng": -122.4189,
+    "condition": "avg",
+    "speed": 4.8
+  },
+  {
+    "id": 3,
+    "trip_id": 1,
+    "timestamp": "2026-08-24 10:14:30",
+    "lat": 37.7761,
+    "lng": -122.4183,
+    "condition": "bad",
+    "speed": 3.2
+  },
+  {
+    "id": 4,
+    "trip_id": 2,
+    "timestamp": "2026-08-23 15:05:12",
+    "lat": 37.7800,
+    "lng": -122.4200,
+    "condition": "obstruction",
+    "speed": 0.0
+  },
+  {
+    "id": 5,
+    "trip_id": 2,
+    "timestamp": "2026-08-23 15:06:05",
+    "lat": 37.7805,
+    "lng": -122.4195,
+    "condition": "bad",
+    "speed": 2.1
+  },
+  {
+    "id": 6,
+    "trip_id": 3,
+    "timestamp": "2026-08-22 09:20:00",
+    "lat": 37.7700,
+    "lng": -122.4240,
+    "condition": "good",
+    "speed": 6.0
+  }
+]
