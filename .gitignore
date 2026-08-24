@@ -1,0 +1,47 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.*
+
+# Jupyter / notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Python package metadata
+*.egg-info/
+
+# SQLite local database files if you do not want to track them
+# road_data.sqbpro
+# *.db
+# *.sqlite3
+
+# ML outputs you may want to ignore locally
+ml/models/
+ml/*.csv
+ml/*.json
+
+# Build artifacts
+build/
+dist/
+*.tar.gz
