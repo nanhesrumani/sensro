@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +31,20 @@ app.include_router(predict_router, prefix="/api")
 
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+@app.get("/segments.json")
+async def serve_segments_snapshot():
+    path = os.path.join(frontend_path, "segments.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="segments.json not found")
+    return FileResponse(path)
+
+@app.get("/manifest.json")
+async def serve_manifest():
+    path = os.path.join(frontend_path, "manifest.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="manifest.json not found")
+    return FileResponse(path)
 
 @app.get("/")
 async def serve_map():
