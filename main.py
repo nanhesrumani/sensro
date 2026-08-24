@@ -1,12 +1,14 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 
-from database import init_db
-from data import router as data_router
-from ws_manager import manager
+from app.database import init_db
+from app.data import router as data_router
+from app.predict_route import router as predict_router
+from app.ws_manager import manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,17 +17,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Road Mapper", lifespan=lifespan)
 
-app.include_router(data_router, prefix="/api")
+# Allow the GitHub Pages frontend to call the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://nanhesrumani.github.io"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            # Keep connection alive; clients don't need to send anything
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+app.include_router(data_router, prefix="/api")
+app.include_router(predict_router, prefix="/api")
 
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 app.mount("/static", StaticFiles(directory=frontend_path), name="static")
@@ -37,3 +39,15 @@ async def serve_map():
 @app.get("/collect")
 async def serve_collector():
     return FileResponse(os.path.join(frontend_path, "collector.html"))
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await manager.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(ws)
+    except Exception:
+        manager.disconnect(ws)
